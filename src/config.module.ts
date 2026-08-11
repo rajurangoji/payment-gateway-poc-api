@@ -1,6 +1,7 @@
 import * as path from 'path';
 
 import { Global, Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { TypeConfigModule } from '@snow-tzu/type-config-nestjs';
 
 import { AwsSharedConfig } from '@shared/config/aws.shared.config';
@@ -14,6 +15,11 @@ import { ExampleQueueConfig } from './examples/example.queue.config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+      expandVariables: true,
+    }),
     TypeConfigModule.forRoot({
       profile: process.env.NODE_ENV ?? 'development',
       isGlobal: true,

@@ -1,5 +1,4 @@
 import { Global, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 
 import { TENANT_CONFIG_PROVIDER } from '@shared/database/interfaces/tenant-config-provider';
@@ -9,7 +8,7 @@ import { CustomExceptionFilter } from '@shared/filters/custom.exception.filter';
 
 @Global()
 @Module({
-  imports: [ConfigModule.forRoot()],
+  imports: [],
   providers: [
     {
       provide: TENANT_CONFIG_PROVIDER,
