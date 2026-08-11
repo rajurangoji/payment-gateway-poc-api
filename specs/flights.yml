@@ -1,0 +1,482 @@
+openapi: 3.0.3
+info:
+  title: Cargo Management System - Flight Management API
+  description: |
+    API for managing flights in the cargo management system.
+    This API supports idempotent flight creation and updates using the flight_number as the unique identifier.
+  version: 1.0.0
+
+paths:
+  /v0/flights:
+    put:
+      tags:
+        - Flight Management
+      summary: Create or update a flight
+      description: |
+        Creates a new flight or updates an existing flight based on the flight_number.
+        This API is idempotent - if a flight with the same flight_number exists, it will be updated.
+        Otherwise, a new flight will be created.
+        
+        **Business Rules:**
+        - flight_number must be unique
+        - All required fields must be provided
+        - Origin and destination are 3-letter IATA city/airport codes
+        - Origin country is a 2-character ISO code (ISO 3166-1 alpha-2)
+        - Destination country is provided via country_code header for tenant isolation
+      operationId: upsertFlight
+      parameters:
+        - name: X-Trace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          description: Unique trace identifier for distributed tracing. If not provided, a new trace will be created.
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: X-Span-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{16}$'
+          description: Unique span identifier for distributed tracing. If not provided, a new span will be created.
+          example: "1234567890abcdef"
+        - name: traceparent
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+          description: W3C Trace Context traceparent header for distributed tracing. If not provided, a new trace will be created.
+          example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+        - name: country_code
+          in: header
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+            pattern: '^[A-Z]{2}$'
+          description: Destination country code (2-letter ISO code) used for tenant isolation. If not provided, will be derived from destination city.
+          example: "PE"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertFlightRequest'
+            examples:
+              create_flight:
+                summary: Create New Flight
+                value:
+                  flightNumber: "AA1234"
+                  carrierCode: "AA"
+                  originCity: "JFK"
+                  destinationCity: "LIM"
+                  originCountry: "US"
+                  createdBy: "operations-team"
+              update_flight:
+                summary: Update Existing Flight
+                value:
+                  flightNumber: "AA1234"
+                  carrierCode: "AA"
+                  originCity: "JFK"
+                  destinationCity: "LIM"
+                  originCountry: "US"
+                  updatedBy: "operations-team"
+      responses:
+        '200':
+          description: Flight updated successfully
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+            traceparent:
+              description: W3C Trace Context traceparent header
+              schema:
+                type: string
+                pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+              example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+            country_code:
+              description: country code
+              schema:
+                type: string
+              example: "PE"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightUpdatedResponse'
+              examples:
+                updated_response:
+                  summary: Flight Updated
+                  value:
+                    flightId: "018f-1234-5678-9abc-def012345678"
+                    flightNumber: "AA1234"
+                    carrierCode: "AA"
+                    originCity: "JFK"
+                    destinationCity: "LIM"
+                    originCountry: "US"
+                    createdAt: "2024-01-15T10:30:00Z"
+                    updatedAt: "2024-01-15T11:30:00Z"
+        '201':
+          description: Flight created successfully
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+            traceparent:
+              description: W3C Trace Context traceparent header
+              schema:
+                type: string
+                pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+              example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlightCreatedResponse'
+              examples:
+                created_response:
+                  summary: Flight Created
+                  value:
+                    flightId: "018f-1234-5678-9abc-def012345678"
+                    flightNumber: "AA1234"
+                    carrierCode: "AA"
+                    originCity: "JFK"
+                    destinationCity: "LIM"
+                    originCountry: "US"
+                    createdAt: "2024-01-15T10:30:00Z"
+                    updatedAt: "2024-01-15T10:30:00Z"
+        '400':
+          description: Validation error
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+            traceparent:
+              description: W3C Trace Context traceparent header
+              schema:
+                type: string
+                pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+              example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+            country_code:
+              description: country code
+              schema:
+                type: string
+              example: "PE"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation Error
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Request validation failed"
+                      details:
+                        - field: "flightNumber"
+                          error: "Flight number is required"
+                          code: "REQUIRED"
+                        - field: "carrierCode"
+                          error: "Carrier code is required"
+                          code: "REQUIRED"
+                        - field: "originCity"
+                          error: "Origin city code must be exactly 3 characters"
+                          code: "INVALID_FORMAT"
+                        - field: "destinationCity"
+                          error: "Destination city code must be exactly 3 characters"
+                          code: "INVALID_FORMAT"
+                        - field: "originCountry"
+                          error: "Origin country must be exactly 2 characters"
+                          code: "INVALID_FORMAT"
+        '500':
+          description: Internal server error
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+            traceparent:
+              description: W3C Trace Context traceparent header
+              schema:
+                type: string
+                pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+              example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+            country_code:
+              description: country code
+              schema:
+                type: string
+              example: "PE"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerErrorResponse'
+
+components:
+  schemas:
+    UpsertFlightRequest:
+      type: object
+      required:
+        - flightNumber
+        - carrierCode
+        - originCity
+        - destinationCity
+        - originCountry
+      properties:
+        flightNumber:
+          type: string
+          maxLength: 20
+          minLength: 1
+          pattern: '^[A-Z0-9]+$'
+          description: Unique flight number
+          example: "AA1234"
+        carrierCode:
+          type: string
+          maxLength: 10
+          minLength: 2
+          pattern: '^[A-Z]{2,10}$'
+          description: IATA carrier code
+          example: "AA"
+        originCity:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Z]{3}$'
+          description: IATA 3-letter origin city/airport code
+          example: "JFK"
+        destinationCity:
+          type: string
+          minLength: 3
+          maxLength: 3
+          pattern: '^[A-Z]{3}$'
+          description: IATA 3-letter destination city/airport code
+          example: "LIM"
+        originCountry:
+          type: string
+          minLength: 2
+          maxLength: 2
+          pattern: '^[A-Z]{2}$'
+          description: ISO 2-letter origin country code
+          example: "US"
+        createdBy:
+          type: string
+          maxLength: 100
+          description: User or system that creates the flight (for new flights)
+          example: "flight-service"
+        updatedBy:
+          type: string
+          maxLength: 100
+          description: User or system that updates the flight (for existing flights)
+          example: "operations-team"
+
+    FlightCreatedResponse:
+      type: object
+      required:
+        - data
+        - message
+      properties:
+        data:
+          $ref: '#/components/schemas/FlightData'
+        message:
+          type: string
+          example: "Flight created successfully"
+
+    FlightUpdatedResponse:
+      type: object
+      required:
+        - data
+        - message
+      properties:
+        data:
+          $ref: '#/components/schemas/FlightData'
+        message:
+          type: string
+          example: "Flight updated successfully"
+
+    FlightData:
+      type: object
+      required:
+        - flightId
+        - flightNumber
+        - carrierCode
+        - originCity
+        - destinationCity
+        - originCountry
+      properties:
+        flightId:
+          type: string
+          format: uuid
+          description: Unique flight identifier
+          example: "018f-1234-5678-9abc-def012345678"
+        flightNumber:
+          type: string
+          description: Flight number
+          example: "AA1234"
+        carrierCode:
+          type: string
+          description: Carrier code
+          example: "AA"
+        originCity:
+          type: string
+          description: Origin city/airport code
+          example: "JFK"
+        destinationCity:
+          type: string
+          description: Destination city/airport code
+          example: "LIM"
+        originCountry:
+          type: string
+          description: Origin country code
+          example: "US"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2024-01-15T10:30:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2024-01-15T10:30:00Z"
+        createdBy:
+          type: string
+          description: User or system that created the flight
+          example: "flight-service"
+        updatedBy:
+          type: string
+          description: User or system that last updated the flight
+          example: "operations-team"
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Request validation failed"
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationErrorDetail'
+
+    ValidationErrorDetail:
+      type: object
+      required:
+        - field
+        - error
+        - code
+      properties:
+        field:
+          type: string
+          description: Field name that failed validation
+          example: "flightNumber"
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Flight number is required"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "REQUIRED"
+
+    BusinessErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: string
+              example: "BUSINESS_RULE_VIOLATION"
+            message:
+              type: string
+              example: "Business rule validation failed"
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationErrorDetail'
+
+    ServerErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: "INTERNAL_SERVER_ERROR"
+            message:
+              type: string
+              example: "An unexpected error occurred"
+
+tags:
+  - name: Flight Management
+    description: Operations for managing flights
+  - name: Manifest Management
+    description: Operations for managing manifests

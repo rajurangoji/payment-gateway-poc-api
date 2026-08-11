@@ -1,0 +1,1 @@
+export const SAMPLE_HTTP_CLIENT = Symbol('SAMPLE_HTTP_CLIENT');

@@ -1,0 +1,35 @@
+app:
+  meta:
+    version: 1.0.0
+    name: Catalyst Service
+logging:
+  level: info
+  format: json
+databases:
+  connections:
+    serhafen-us:
+      host: ${DB_BU1_US_HOST:host.docker.internal}
+      port: ${DB_BU1_US_PORT:5432}
+      username: ${DB_BU1_US_USERNAME:postgres}
+      password: ${DB_BU1_US_PASSWORD}
+      database: ${DB_BU1_US_DATABASE:serhafen_common}
+      schema: ${DB_BU1_US_SCHEMA:us}
+    serhafen-ag:
+      host: ${DB_BU1_AG_HOST:host.docker.internal}
+      port: ${DB_BU1_AG_PORT:5432}
+      username: ${DB_BU1_AG_USERNAME:postgres}
+      password: ${DB_BU1_AG_PASSWORD}
+      database: ${DB_BU1_AG_DATABASE:serhafen_common}
+      schema: ${DB_BU1_AG_SCHEMA:ag}
+    serhafen-cl:
+      host: ${DB_BU2_CL_HOST:host.docker.internal}
+      port: ${DB_BU2_CL_PORT:5432}
+      username: ${DB_BU2_CL_USERNAME:postgres}
+      password: ${DB_BU2_CL_PASSWORD}
+      database: ${DB_BU2_CL_DATABASE:serhafen_chile}
+      schema: ${DB_BU2_CL_SCHEMA:cl}
+  pool:
+    maxConnections: ${DB_POOL_MAX:10}
+    minConnections: ${DB_POOL_MIN:1}
+    idleTimeoutMillis: ${DB_POOL_IDLE_TIMEOUT:10000}
+    connectionTimeoutMillis: ${DB_POOL_CONNECTION_TIMEOUT:10000}

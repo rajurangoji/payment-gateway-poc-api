@@ -1,0 +1,7 @@
+app:
+  meta:
+    version: 1.0.0
+    name: Catalyst Service Development
+logging:
+  level: info
+  format: pretty

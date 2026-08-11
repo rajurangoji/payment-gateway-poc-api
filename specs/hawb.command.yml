@@ -1,0 +1,1143 @@
+openapi: 3.0.3
+info:
+  title: Cargo Management System - Declaration Module API
+  description: |
+    API for managing House Air Waybills (HAWBs) and Big Bags in the cargo management system.
+    This API supports idempotent HAWB creation with automatic Big Bag creation.
+
+  version: 1.0.0
+
+paths:
+  /create/hawb:
+    post:
+      tags:
+        - HAWB Management
+      summary: Create a new HAWB with Big Bag
+      description: |
+        Creates a new House Air Waybill (HAWB) with automatic Big Bag creation.
+        If a HAWB with the same lastmileTrackingNumber, mawbNumber, and bigBagNumber already exists,
+        returns the existing HAWB instead of creating a duplicate.
+        
+        The API automatically creates or updates Big Bag records based on the bigBagNumber.
+        If the Big Bag doesn't exist, it will be created with the provided HAWB data.
+        
+        Supports distributed tracing through X-Trace-Id and X-Span-Id headers.
+      operationId: createHawb
+      parameters:
+        - name: X-Trace-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          description: Unique trace identifier for distributed tracing. If not provided, a new trace will be created.
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        - name: X-Span-Id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{16}$'
+          description: Unique span identifier for distributed tracing. If not provided, a new span will be created.
+          example: "1234567890abcdef"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHawbRequest'
+            examples:
+              basic_hawb:
+                summary: Basic HAWB Creation
+                value:
+                  clientId: "01"
+                  destinationCountryCode: "CL"
+                  lastMileTrackingNumber: "3509535960"
+                  mawbNumber: "MAWB-2024-001"
+                  bigBagNumber: "CLLMBLUE00505396"
+                  customsType: "IMPORT"
+                  grossWeight: "0.24600"
+                  freightPrice: 0.50
+                  insurancePrice: 0.00
+                  declaredPrice: 10.14
+                  pieces: 2
+                  weightUom: "KG"
+                  currency: "USD"
+                  goodsPrice: "10.14000"
+                  netWeight: "0.24600"
+                  dangerousGoods: false
+                  customsClearanceMode: "OVEASEAS_CCC_DIRECT"
+                  logisticsOrderCode: "LP00717258464258"
+                  lastmilePartnerCode: "DISTRIBUTOR_30710422"
+                  senderInfo:
+                    name: "Yang Ke"
+                    address: "CN^^^^^^^^^^^^Zhejiang Province~~~Shaoxing~~~Shangyu District~~~Tangpu Town~~~Room 301, Building 1, Tongpu Children's Wear Industrial Park"
+                    city: "Shaoxing"
+                    country: "CN"
+                    state: "Zhejiang Province"
+                    street: "Tangpu Town~~~Room 301, Building 1, Tongpu Children's Wear Industrial Park"
+                    email: "442699119@qq.com"
+                    phone: "15137736988"
+                  consigneeInfo:
+                    name: "lydia Escobar Cotal"
+                    address: "Valparaiso~~~Vina del Mar~~~~~~altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+                    city: "Vina del Mar"
+                    country: "CL"
+                    state: "Valparaiso"
+                    street: "altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+                    email: "lya.escobar1986@gmail.com"
+                    phone: "+56984904074"
+                    identificationType: "PASSPORT"
+                    identificationNumber: "16331648-K"
+                  returnInfo:
+                    name: "lydia Escobar Cotal"
+                    address: "Valparaiso~~~Vina del Mar~~~~~~altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+                    city: "Vina del Mar"
+                    country: "CL"
+                    state: "Valparaiso"
+                    street: "altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+                    email: "lya.escobar1986@gmail.com"
+                    phone: "+56984904074"
+                  itemsList:
+                    - itemId: "1005005824455795_1"
+                      itemName: "Ropa Set, cosas"
+                      barCode: ""
+                      qty: "1"
+                      price: "10.14000"
+                      totalPrice: "10.14000"
+                      currency: "USD"
+                      productUrl: "http://www.aliexpress.com/item/1005005824455795.html"
+                    - itemId: "1005005824455795_1"
+                      itemName: "pelota de futbol"
+                      barCode: ""
+                      qty: "1"
+                      price: "10.14000"
+                      totalPrice: "10.14000"
+                      currency: "USD"
+                      productUrl: "http://www.aliexpress.com/item/1005005824455795.html"
+                  uniqueReferences:
+                    - key: "ORDER_NO"
+                      value: "8199596234197709"
+                    - key: "COP_NO"
+                      value: "CB10008684597810"
+              hawb_with_big_bag_details:
+                summary: HAWB with Big Bag Details
+                value:
+                  clientId: "02"
+                  destinationCountryCode: "PE"
+                  lastMileTrackingNumber: "WYB3474845632"
+                  mawbNumber: "MAWB-2024-002"
+                  bigBagNumber: "BG-25071157A0HQ5QL82"
+                  customsType: "IMPORT"
+                  grossWeight: "1.20000"
+                  freightPrice: 25.00
+                  insurancePrice: 5.00
+                  declaredPrice: 500.00
+                  pieces: 3
+                  weightUom: "KG"
+                  currency: "USD"
+                  goodsPrice: "500.00000"
+                  netWeight: "1.20000"
+                  dangerousGoods: false
+                  customsClearanceMode: "STANDARD"
+                  logisticsOrderCode: "LP00717258464259"
+                  lastmilePartnerCode: "DISTRIBUTOR_30710423"
+                  senderInfo:
+                    name: "Shipper Corp"
+                    address: "Beijing~~~Chaoyang District~~~Room 1001, Building A"
+                    city: "Beijing"
+                    country: "CN"
+                    state: "Beijing"
+                    street: "Room 1001, Building A"
+                    email: "shipper@example.com"
+                    phone: "+86-138-0013-8000"
+                  consigneeInfo:
+                    name: "Import Ltd"
+                    address: "Lima~~~Miraflores~~~Av. Principal 456"
+                    city: "Lima"
+                    country: "PE"
+                    state: "Lima"
+                    street: "Av. Principal 456"
+                    email: "import@example.com"
+                    phone: "+51-1-234-5679"
+                    identificationType: "RUC"
+                    identificationNumber: "20123456791"
+                  returnInfo:
+                    name: "Import Ltd"
+                    address: "Lima~~~Miraflores~~~Av. Principal 456"
+                    city: "Lima"
+                    country: "PE"
+                    state: "Lima"
+                    street: "Av. Principal 456"
+                    email: "import@example.com"
+                    phone: "+51-1-234-5679"
+                  itemsList:
+                    - itemId: "PROD123456"
+                      itemName: "Electronics and accessories"
+                      barCode: "123456789012"
+                      qty: "3"
+                      price: "166.67000"
+                      totalPrice: "500.00000"
+                      currency: "USD"
+                      productUrl: "https://example.com/product/123456"
+                  uniqueReferences:
+                    - key: "ORDER_ID"
+                      value: "ORD123456789"
+                    - key: "BATCH_ID"
+                      value: "BATCH001"
+              hawb_with_country_fields:
+                summary: HAWB with Country-Specific Fields
+                value:
+                  clientId: "03"
+                  destinationCountryCode: "MX"
+                  lastMileTrackingNumber: "WYB3474845633"
+                  mawbNumber: "MAWB-2024-003"
+                  bigBagNumber: "BG-25071157A0HQ5QL83"
+                  customsType: "EXPORT"
+                  grossWeight: "1.80000"
+                  freightPrice: 35.00
+                  insurancePrice: 10.00
+                  declaredPrice: 750.00
+                  pieces: 5
+                  weightUom: "KG"
+                  currency: "USD"
+                  goodsPrice: "750.00000"
+                  netWeight: "1.80000"
+                  dangerousGoods: false
+                  customsClearanceMode: "EXPRESS"
+                  logisticsOrderCode: "LP00717258464260"
+                  lastmilePartnerCode: "DISTRIBUTOR_30710424"
+                  senderInfo:
+                    name: "Export Corp"
+                    address: "Shanghai~~~Pudong New Area~~~Room 2002, Building B"
+                    city: "Shanghai"
+                    country: "CN"
+                    state: "Shanghai"
+                    street: "Room 2002, Building B"
+                    email: "export@example.com"
+                    phone: "+86-139-0013-9000"
+                  consigneeInfo:
+                    name: "Import Ltd"
+                    address: "Mexico City~~~Polanco~~~Av. Masaryk 456"
+                    city: "Mexico City"
+                    country: "MX"
+                    state: "Mexico City"
+                    street: "Av. Masaryk 456"
+                    email: "import@example.com"
+                    phone: "+52-55-1234-5679"
+                    identificationType: "PASSPORT"
+                    identificationNumber: "MXP123456789"
+                  returnInfo:
+                    name: "Export Corp"
+                    address: "Shanghai~~~Pudong New Area~~~Room 2002, Building B"
+                    city: "Shanghai"
+                    country: "CN"
+                    state: "Shanghai"
+                    street: "Room 2002, Building B"
+                    email: "export@example.com"
+                    phone: "+86-139-0013-9000"
+                  itemsList:
+                    - itemId: "PROD789012"
+                      itemName: "Industrial Equipment"
+                      barCode: "987654321098"
+                      qty: "5"
+                      price: "150.00000"
+                      totalPrice: "750.00000"
+                      currency: "USD"
+                      productUrl: "https://example.com/product/789012"
+                  uniqueReferences:
+                    - key: "EXPORT_LICENSE"
+                      value: "EXP2024001"
+                    - key: "CERTIFICATE"
+                      value: "CERT123456"
+      responses:
+        '201':
+          description: HAWB created successfully
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HawbCreatedResponse'
+              examples:
+                success_response:
+                  summary: Successful Creation
+                  value:
+                    success: true
+                    data:
+                      hawbId: "018f-1234-5678-9abc-def012345678"
+                      clientId: "01"
+                      destinationCountryCode: "CL"
+                      clientTrackingNumber: "3509535960"
+                      mawbId: "MAWB-2024-001"
+                      bigBagId: "018f-1234-5678-9abc-def012345679"
+                      status: "CREATED"
+                      createdAt: "2024-01-15T10:30:00Z"
+                    message: "HAWB and Big Bag created successfully"
+        '200':
+          description: HAWB already exists (idempotent response)
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HawbDuplicateResponse'
+              examples:
+                duplicate_response:
+                  summary: Duplicate HAWB
+                  value:
+                    success: true
+                    data:
+                      hawbId: "018f-1234-5678-9abc-def012345678"
+                      clientId: "01"
+                      destinationCountryCode: "CL"
+                      clientTrackingNumber: "3509535960"
+                      mawbId: "MAWB-2024-001"
+                      bigBagId: "018f-1234-5678-9abc-def012345679"
+                      status: "DUPLICATE"
+                      createdAt: "2024-01-15T10:25:00Z"
+                    message: "HAWB already exists, returning existing record"
+        '400':
+          description: Validation error
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+              examples:
+                validation_error:
+                  summary: Validation Error
+                  value:
+                    success: false
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Request validation failed"
+                      details:
+                        - field: "clientId"
+                          error: "Client ID is required"
+                          code: "REQUIRED"
+                        - field: "destinationCountryCode"
+                          error: "Destination country is required"
+                          code: "REQUIRED"
+                        - field: "lastMileTrackingNumber"
+                          error: "Last mile tracking number is required"
+                          code: "REQUIRED"
+                        - field: "mawbNumber"
+                          error: "Master AWB number is required"
+                          code: "REQUIRED"
+                        - field: "bigBagNumber"
+                          error: "Big Bag number is required"
+                          code: "REQUIRED"
+                        - field: "senderInfo"
+                          error: "Sender information is required"
+                          code: "REQUIRED"
+                        - field: "consigneeInfo"
+                          error: "Consignee information is required"
+                          code: "REQUIRED"
+                        - field: "itemsList"
+                          error: "Items list is required"
+                          code: "REQUIRED"
+        '409':
+          description: Business rule violation
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessErrorResponse'
+              examples:
+                business_error:
+                  summary: Business Rule Violation
+                  value:
+                    success: false
+                    error:
+                      code: "BUSINESS_RULE_VIOLATION"
+                      message: "Business rule validation failed"
+                      details:
+                        - field: "mawbNumber"
+                          error: "Master AWB does not exist or is not in CREATED status"
+                          code: "MAWB_NOT_FOUND"
+                        - field: "lastMileTrackingNumber"
+                          error: "Tracking number already exists for different MAWB"
+                          code: "TRACKING_NUMBER_CONFLICT"
+                        - field: "bigBagNumber"
+                          error: "Big Bag is full and cannot accept more packages"
+                          code: "BIG_BAG_FULL"
+        '404':
+          description: MAWB not found
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundErrorResponse'
+              examples:
+                not_found_error:
+                  summary: MAWB Not Found
+                  value:
+                    success: false
+                    error:
+                      code: "MAWB_NOT_FOUND"
+                      message: "MAWB with number MAWB-2024-001 does not exist"
+        '500':
+          description: Internal server error
+          headers:
+            X-Trace-Id:
+              description: Trace identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+              example: "550e8400-e29b-41d4-a716-446655440000"
+            X-Span-Id:
+              description: Span identifier for this request
+              schema:
+                type: string
+                pattern: '^[0-9a-f]{16}$'
+              example: "1234567890abcdef"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerErrorResponse'
+              examples:
+                server_error:
+                  summary: Internal Server Error
+                  value:
+                    success: false
+                    error:
+                      code: "INTERNAL_SERVER_ERROR"
+                      message: "An unexpected error occurred"
+                      details:
+                        - field: "system"
+                          error: "Database connection failed"
+                          code: "DATABASE_ERROR"
+
+components:
+  schemas:
+    ConsigneeInfo:
+      type: object
+      required:
+        - name
+        - address
+        - city
+        - country
+        - email
+        - phone
+        - identificationType
+        - identificationNumber
+      properties:
+        identificationType:
+          type: string
+          maxLength: 255
+          example: DNI
+        identificationNumber:
+          type: string
+          maxLength: 500
+          example: '29038711'
+        name:
+          type: string
+          maxLength: 255
+          description: Full name of the consignee
+          example: "lydia Escobar Cotal"
+        address:
+          type: string
+          maxLength: 1000
+          description: Full address of the consignee
+          example: "Valparaiso~~~Vina del Mar~~~~~~altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+        city:
+          type: string
+          maxLength: 100
+          description: City of the consignee
+          example: "Vina del Mar"
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          pattern: '^[A-Z]{2}$'
+          description: ISO 2-letter country code of consignee
+          example: "CL"
+        state:
+          type: string
+          maxLength: 100
+          description: State or province of the consignee
+          example: "Valparaiso"
+        street:
+          type: string
+          maxLength: 500
+          description: Street address of the consignee
+          example: "altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Email address of the consignee
+          example: "lya.escobar1986@gmail.com"
+        phone:
+          type: string
+          maxLength: 50
+          pattern: '^[+]?[0-9\s\-\(\)]+$'
+          description: Mobile phone number of the consignee
+          example: "+56984904074"
+        uniqueReferences:
+          type: array
+          description: Array of unique reference key-value pairs
+          items:
+            $ref: '#/components/schemas/UniqueReferences'
+
+    SenderInfo:
+      type: object
+      required:
+        - name
+        - address
+        - city
+        - country
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: Full name of the sender
+          example: "Yang Ke"
+        address:
+          type: string
+          maxLength: 1000
+          description: Full address of the sender
+          example: "CN^^^^^^^^^^^^Zhejiang Province~~~Shaoxing~~~Shangyu District~~~Tangpu Town~~~Room 301, Building 1, Tongpu Children's Wear Industrial Park"
+        city:
+          type: string
+          maxLength: 100
+          description: City of the sender
+          example: "Shaoxing"
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          pattern: '^[A-Z]{2}$'
+          description: ISO 2-letter country code of sender
+          example: "CN"
+        state:
+          type: string
+          maxLength: 100
+          description: State or province of the sender
+          example: "Zhejiang Province"
+        street:
+          type: string
+          maxLength: 500
+          description: Street address of the sender
+          example: "Tangpu Town~~~Room 301, Building 1, Tongpu Children's Wear Industrial Park"
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Email address of the sender
+          example: "442699119@qq.com"
+        phone:
+          type: string
+          maxLength: 50
+          pattern: '^[+]?[0-9\s\-\(\)]+$'
+          description: Mobile phone number of the sender
+          example: "15137736988"
+        uniqueReferences:
+          type: array
+          description: Array of unique reference key-value pairs
+          items:
+            $ref: '#/components/schemas/UniqueReferences'
+
+    ReturnInfo:
+      type: object
+      required:
+        - name
+        - address
+        - city
+        - country
+        - email
+        - phone
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          description: Full name for return address
+          example: "lydia Escobar Cotal"
+        address:
+          type: string
+          maxLength: 1000
+          description: Full return address
+          example: "Valparaiso~~~Vina del Mar~~~~~~altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+        city:
+          type: string
+          maxLength: 100
+          description: City for return address
+          example: "Vina del Mar"
+        country:
+          type: string
+          minLength: 2
+          maxLength: 2
+          pattern: '^[A-Z]{2}$'
+          description: ISO 2-letter country code for return address
+          example: "CL"
+        state:
+          type: string
+          maxLength: 100
+          description: State or province for return address
+          example: "Valparaiso"
+        street:
+          type: string
+          maxLength: 500
+          description: Street address for return
+          example: "altos del mar psje3 casa103 reñaca alto paradero 8 casa"
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          description: Email address for return
+          example: "lya.escobar1986@gmail.com"
+        phone:
+          type: string
+          maxLength: 50
+          pattern: '^[+]?[0-9\s\-\(\)]+$'
+          description: Mobile phone number for return
+          example: "+56984904074"
+        uniqueReferences:
+          type: array
+          description: Array of unique reference key-value pairs
+          items:
+            $ref: '#/components/schemas/UniqueReferences'
+
+    ItemInfo:
+      type: object
+      description: Item information for customs declaration
+      required:
+        - itemId
+        - itemName
+        - qty
+        - price
+        - totalPrice
+        - currency
+      properties:
+        itemId:
+          type: string
+          maxLength: 100
+          description: Item identifier
+          example: "1005005824455795_1"
+        itemName:
+          type: string
+          maxLength: 255
+          description: Item name
+          example: "Ropa Set, cosas"
+        barCode:
+          type: string
+          maxLength: 50
+          description: Barcode
+          example: ""
+        qty:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Quantity
+          example: "1"
+        price:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Unit price
+          example: "10.14000"
+        totalPrice:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Total price
+          example: "10.14000"
+        currency:
+          type: string
+          maxLength: 3
+          pattern: '^[A-Z]{3}$'
+          description: Currency code
+          example: "USD"
+        productUrl:
+          type: string
+          format: uri
+          maxLength: 500
+          description: Product URL
+          example: "http://www.aliexpress.com/item/1005005824455795.html"
+        uniqueReferences:
+          type: array
+          description: Array of unique reference key-value pairs
+          items:
+            $ref: '#/components/schemas/UniqueReferences'
+
+    UniqueReferences:
+      type: object
+      required:
+        - key
+        - value
+      properties:
+        key:
+          type: string
+          maxLength: 50
+          description: Reference key
+          example: "ORDER_ID"
+        value:
+          type: string
+          maxLength: 100
+          description: Reference value
+          example: "ORD123456789"
+
+    Dimensions:
+      type: object
+      required:
+        - length
+        - lengthUOM
+        - width
+        - widthUOM
+        - height
+        - heightUOM
+      properties:
+        length:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Length dimension
+          example: 30.5
+        lengthUOM:
+          type: string
+          enum: [CM, IN, M, FT]
+          description: Length unit of measure
+          example: "CM"
+        width:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Width dimension
+          example: 20.0
+        widthUOM:
+          type: string
+          enum: [CM, IN, M, FT]
+          description: Width unit of measure
+          example: "CM"
+        height:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Height dimension
+          example: 15.0
+        heightUOM:
+          type: string
+          enum: [CM, IN, M, FT]
+          description: Height unit of measure
+          example: "CM"
+
+    CreateHawbRequest:
+      type: object
+      required:
+        - clientId
+        - destinationCountryCode
+        - lastMileTrackingNumber
+        - mawbNumber
+        - senderInfo
+        - consigneeInfo
+        - bigBagNumber
+        - customsType
+        - grossWeight
+        - freightPrice
+        - insurancePrice
+        - declaredPrice
+        - pieces
+        - weightUom
+        - itemsList
+      properties:
+        weightUom:
+          type: string
+          enum: [KG, LB, G, OZ]
+          description: Weight unit of measure
+          example: "KG"
+        logisticsOrderCode:
+          type: string
+          maxLength: 50
+          pattern: '^[A-Z0-9]+$'
+          example: "ABCD"
+        lastMileTrackingNumber:
+          type: string
+          maxLength: 50
+          pattern: '^[A-Z0-9]+$'
+          description: Unique tracking ID for the HAWB
+          example: "WYB3474845631"
+        clientTrackingNumber:
+          type: string
+          maxLength: 50
+          pattern: '^[A-Z0-9]+$'
+          description: Unique tracking ID for the HAWB
+          example: "WYB3474845631"
+        customsClearanceMode:
+          type: string
+          maxLength: 50
+          example: "mode"
+        clientId:
+          type: string
+          maxLength: 10
+          description: Client identifier
+          example: "01"
+        destinationCountryCode:
+          type: string
+          minLength: 2
+          maxLength: 2
+          pattern: '^[A-Z]{2}$'
+          description: Destination country code
+          example: "CL"
+        mawbNumber:
+          type: string
+          maxLength: 50
+          description: Master Air Waybill number
+          example: "MAWB-2024-001"
+        consigneeInfo:
+          $ref: '#/components/schemas/ConsigneeInfo'
+        senderInfo:
+          $ref: '#/components/schemas/SenderInfo'
+        returnInfo:
+          $ref: '#/components/schemas/ReturnInfo'
+        uniqueReferences:
+          type: array
+          description: Array of unique reference key-value pairs
+          items:
+            $ref: '#/components/schemas/UniqueReferences'
+        bigBagNumber:
+          type: string
+          maxLength: 50
+          pattern: '^[A-Z0-9-]+$'
+          description: Big Bag number
+          example: "BG-25071157A0HQ5QL81"
+        dangerousGoods:
+          type: boolean
+          default: false
+          description: Whether the shipment contains dangerous goods
+          example: false
+        declaredPrice:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Declared value in USD
+          example: 190.00
+        currency:
+          type: string
+          maxLength: 3
+          pattern: '^[A-Z]{3}$'
+          description: Currency code
+          example: "USD"
+        goodsPrice:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Goods price
+          example: "10.14000"
+        grossWeight:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Gross weight
+          example: "0.24600"
+        customsType:
+          type: string
+          enum: ["IMPORT", "EXPORT"]
+          description: Import/Export flag
+          example: "IMPORT"
+        netWeight:
+          type: string
+          pattern: '^[0-9]+\.?[0-9]*$'
+          description: Net weight
+          example: "0.24600"
+        itemsList:
+          type: array
+          description: List of items in the shipment
+          items:
+            $ref: '#/components/schemas/ItemInfo'
+        dimensions:
+          $ref: '#/components/schemas/Dimensions'
+        pieces:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Number of pieces
+          example: 1
+        freightPrice:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Freight value in USD
+          example: 25.00
+        insurancePrice:
+          type: number
+          format: decimal
+          minimum: 0
+          multipleOf: 0.01
+          description: Insurance value in USD
+          example: 200.00
+        lastmilePartnerCode:
+          type: string
+          maxLength: 50
+          description: Partner identification code
+          example: "PARTNER001"
+
+    HawbCreatedResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/HawbData'
+        message:
+          type: string
+          example: "HAWB and Big Bag created successfully"
+
+    HawbDuplicateResponse:
+      type: object
+      required:
+        - success
+        - data
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/HawbData'
+        message:
+          type: string
+          example: "HAWB already exists, returning existing record"
+
+    HawbData:
+      type: object
+      required:
+        - hawbId
+        - clientId
+        - destinationCountryCode
+        - clientTrackingNumber
+        - mawbId
+        - bigBagId
+        - status
+        - createdAt
+      properties:
+        hawbId:
+          type: string
+          format: uuid
+          description: Unique HAWB identifier
+          example: "018f-1234-5678-9abc-def012345678"
+        clientId:
+          type: string
+          description: Client identifier
+          example: "01"
+        clientTrackingNumber:
+          type: string
+          description: Client identifier
+        destinationCountryCode:
+          type: string
+          description: Destination country code
+          example: "CL"
+        mawbId:
+          type: string
+          description: Master Air Waybill number
+          example: "MAWB-2024-001"
+        bigBagId:
+          type: string
+          format: uuid
+          description: Associated Big Bag identifier
+          example: "018f-1234-5678-9abc-def012345679"
+        status:
+          type: string
+          enum: [CREATED, DUPLICATE]
+          description: Creation status
+          example: "CREATED"
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2024-01-15T10:30:00Z"
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: string
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              example: "Request validation failed"
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationErrorDetail'
+
+    ValidationErrorDetail:
+      type: object
+      required:
+        - field
+        - error
+        - code
+      properties:
+        field:
+          type: string
+          description: Field name that failed validation
+          example: "lastmileTrackingNumber"
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Lastmile tracking number is required"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "REQUIRED"
+
+    BusinessErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - details
+          properties:
+            code:
+              type: string
+              example: "BUSINESS_RULE_VIOLATION"
+            message:
+              type: string
+              example: "Business rule validation failed"
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationErrorDetail'
+
+    NotFoundErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: "MAWB_NOT_FOUND"
+            message:
+              type: string
+              example: "MAWB with number 018f-1234-5678-9abc-def012345678 does not exist"
+
+    ServerErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              example: "INTERNAL_SERVER_ERROR"
+            message:
+              type: string
+              example: "An unexpected error occurred"
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ValidationErrorDetail'
+
+tags:
+  - name: HAWB Management
+    description: Operations for managing House Air Waybills and Big Bags
+  - name: MAWB Management
+    description: Operations for managing Master Air Waybills
+  - name: Manifest Management
+    description: Operations for managing Manifests
