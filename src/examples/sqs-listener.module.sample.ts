@@ -34,7 +34,7 @@ import { SampleSqsConsumer } from './sqs-listener.sample';
           options
             .queueName(exampleQueueConfig.name)
             .pollTimeout(20)
-            .autoStartup(true)
+            .autoStartup(false)
             .acknowledgementMode(AcknowledgementMode.ON_SUCCESS)
             .maxConcurrentMessages(10)
             .targetClass(SampleEvent)

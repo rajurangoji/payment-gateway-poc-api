@@ -11,7 +11,7 @@ paths:
   /create/hawb:
     post:
       tags:
-        - HAWB Management
+        - HAWB Management (for reference only)
       summary: Create a new HAWB with Big Bag
       description: |
         Creates a new House Air Waybill (HAWB) with automatic Big Bag creation.

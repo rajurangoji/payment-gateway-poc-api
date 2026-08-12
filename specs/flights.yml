@@ -10,7 +10,7 @@ paths:
   /v0/flights:
     put:
       tags:
-        - Flight Management
+        -  (for reference only)
       summary: Create or update a flight
       description: |
         Creates a new flight or updates an existing flight based on the flight_number.
