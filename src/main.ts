@@ -18,6 +18,7 @@ async function bootstrap(): Promise<void> {
   );
 
   const configService = app.get(ConfigService);
+  app.enableCors();
 
   const logger = app.get(Logger);
   app.enableShutdownHooks();
