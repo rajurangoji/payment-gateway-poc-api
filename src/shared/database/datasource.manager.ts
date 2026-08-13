@@ -83,7 +83,7 @@ export class DatasourceManager {
       database: config.database,
       schema: config.schema,
       entities: this.entities,
-      migrations: ['dist/migrations/*.js'],
+      migrations: ['dist/src/migrations/*.js'],
       synchronize: false,
       logging: false,
       poolSize: config.connectionPoolConfig?.max,

@@ -1,0 +1,648 @@
+openapi: 3.0.3
+info:
+  title: Razorpay POC - Payments API
+  description: |
+    API for the storefront catalog, checkout, Razorpay payment verification, webhook handling,
+    and refunds. See openspec/changes/razorpay-payment-integration/ for the full spec and design.
+
+    **Security model:**
+    - No authentication/authorization layer exists yet in this codebase (POC). All operations
+      below are effectively public. See design.md "Gaps" for the tracked follow-up.
+    - `POST /api/checkout/create-order` never accepts a client-supplied amount — the total is
+      always recomputed server-side from `cart_products`.
+    - `POST /api/payments/razorpay/verify` verifies the HMAC-SHA256 signature server-side against
+      the order id stored in our own database, never the client-supplied one.
+    - `POST /api/webhooks/razorpay` verifies the `X-Razorpay-Signature` header server-side and is
+      idempotent on `event_id`.
+  version: 1.0.0
+
+paths:
+  /api/products:
+    get:
+      tags:
+        - Products
+      summary: List active products
+      description: |
+        Returns all `ACTIVE` products from the catalog so the storefront can render products to
+        add to cart. Non-active products (INACTIVE, OUT_OF_STOCK, DISCONTINUED) are excluded.
+      operationId: listProducts
+      parameters:
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: List of active products (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductDto'
+              examples:
+                products:
+                  summary: Active catalog
+                  value:
+                    - id: "b7e6c1a0-1111-4a2b-9c3d-000000000001"
+                      name: "Wireless Mouse"
+                      sku: "SKU-MOUSE-001"
+                      price: 799.00
+                      currency: "INR"
+                      stockQuantity: 120
+                      status: "ACTIVE"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/checkout/create-order:
+    post:
+      tags:
+        - Checkout
+      summary: Create an ecommerce order and a Razorpay order
+      description: |
+        Re-fetches prices/stock from `cart_products` (a client-supplied amount, if sent, is
+        ignored), computes subtotal/tax/shipping/discount/total, creates `orders` + `order_items`,
+        creates a Razorpay order for the computed total (in paise), stores `payments` +
+        `payment_transactions`, and publishes an `ORDER_CREATED` message to SQS.
+      operationId: createCheckoutOrder
+      parameters:
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCheckoutOrderRequest'
+            examples:
+              basic_checkout:
+                summary: Two line items
+                value:
+                  userId: "8f14e45f-ceea-467e-8a6d-000000000001"
+                  items:
+                    - productId: "b7e6c1a0-1111-4a2b-9c3d-000000000001"
+                      quantity: 2
+                    - productId: "b7e6c1a0-1111-4a2b-9c3d-000000000002"
+                      quantity: 1
+      responses:
+        '201':
+          description: Order and Razorpay order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCheckoutOrderResponse'
+              examples:
+                created:
+                  summary: Order created
+                  value:
+                    orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+                    razorpayOrderId: "order_NqX8mP7q7fT9aB"
+                    amount: 249900
+                    currency: "INR"
+                    keyId: "rzp_test_xxxxxxxxxxxx"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+  /api/payments/razorpay/verify:
+    post:
+      tags:
+        - Payments
+      summary: Verify a completed Razorpay Checkout payment
+      description: |
+        Recomputes `HMAC_SHA256(stored_provider_order_id + "|" + razorpayPaymentId,
+        RAZORPAY_KEY_SECRET)` using the `provider_order_id` stored server-side for `orderId` (never
+        the client-supplied `razorpayOrderId`) and compares it to `razorpaySignature`. On match,
+        transitions the payment to CAPTURED and the order to PAID.
+      operationId: verifyRazorpayPayment
+      parameters:
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPaymentRequest'
+            examples:
+              verify:
+                summary: Successful checkout callback payload
+                value:
+                  orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+                  razorpayPaymentId: "pay_NqX9zQ8r8gU0cD"
+                  razorpayOrderId: "order_NqX8mP7q7fT9aB"
+                  razorpaySignature: "9ef4dffbc61e0e1a1c8b5e2b6f6a2b0e...redacted"
+      responses:
+        '200':
+          description: Signature verified; payment captured and order marked PAID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyPaymentResponse'
+              examples:
+                verified:
+                  summary: Verified
+                  value:
+                    orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+                    status: "PAID"
+                    paymentStatus: "CAPTURED"
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Signature verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_signature:
+                  summary: Signature mismatch
+                  value:
+                    status: "error"
+                    code: "UnprocessableEntityException"
+                    message: "Payment signature verification failed"
+                    timestamp: "2026-08-13T05:30:00.000Z"
+                    path: "/api/payments/razorpay/verify"
+                    method: "POST"
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/webhooks/razorpay:
+    post:
+      tags:
+        - Webhooks
+      summary: Receive a Razorpay webhook event
+      description: |
+        Verifies `X-Razorpay-Signature` via HMAC-SHA256 against `RAZORPAY_WEBHOOK_SECRET` and the
+        raw request body. Idempotent on `event_id` (unique in `payment_events`). Handles
+        `payment.authorized`, `payment.captured`, and `payment.failed`. Unmatched events (no
+        corresponding `payment_transactions` row) are recorded with `processingStatus: UNMATCHED`
+        and acknowledged with 200 to avoid Razorpay retry storms.
+      operationId: handleRazorpayWebhook
+      parameters:
+        - name: X-Razorpay-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: HMAC-SHA256 signature of the raw request body, signed with RAZORPAY_WEBHOOK_SECRET.
+          example: "f8b1c9e2a7d4560000000000000000000000000000000000000000000000aa"
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RazorpayWebhookPayload'
+      responses:
+        '200':
+          description: Event accepted (processed, already-processed duplicate, or unmatched-and-logged)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAckResponse'
+              examples:
+                processed:
+                  summary: Processed
+                  value:
+                    received: true
+                    eventId: "evt_1a2b3c4d5e"
+                    processingStatus: "PROCESSED"
+        '400':
+          description: Missing/invalid signature, or malformed payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/orders/{id}/refund:
+    post:
+      tags:
+        - Refunds
+      summary: Refund a paid order
+      description: |
+        Calls the Razorpay Refunds API for the order's `payment_transaction`, inserts a `refunds`
+        row, and moves the order toward CANCELLED/REFUNDED.
+      operationId: refundOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Internal order id
+          example: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Refund initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefundResponse'
+              examples:
+                refunded:
+                  summary: Refund created
+                  value:
+                    orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+                    refundId: "b2c3d4e5-0000-4a2b-9c3d-000000000020"
+                    providerRefundId: "rfnd_NqXAzR9s9hV1dE"
+                    status: "REFUND_PENDING"
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/ServerError'
+        '502':
+          $ref: '#/components/responses/UpstreamError'
+
+components:
+  parameters:
+    XTraceId:
+      name: X-Trace-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      description: Unique trace identifier for distributed tracing. If not provided, a new trace will be created.
+      example: "550e8400-e29b-41d4-a716-446655440000"
+    XSpanId:
+      name: X-Span-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9a-f]{16}$'
+      description: Unique span identifier for distributed tracing. If not provided, a new span will be created.
+      example: "1234567890abcdef"
+    Traceparent:
+      name: traceparent
+      in: header
+      required: false
+      schema:
+        type: string
+        pattern: '^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$'
+      description: W3C Trace Context traceparent header for distributed tracing.
+      example: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            bad_request:
+              summary: Validation error
+              value:
+                status: "error"
+                code: "BadRequestException"
+                message: "quantity must be a positive integer"
+                timestamp: "2026-08-13T05:30:00.000Z"
+                path: "/api/checkout/create-order"
+                method: "POST"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            not_found:
+              summary: Not found
+              value:
+                status: "error"
+                code: "NotFoundException"
+                message: "Order not found"
+                timestamp: "2026-08-13T05:30:00.000Z"
+                path: "/api/orders/00000000-0000-0000-0000-000000000000/refund"
+                method: "POST"
+    Conflict:
+      description: Business rule conflict (e.g. insufficient stock, already refunded)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            conflict:
+              summary: Conflict
+              value:
+                status: "error"
+                code: "ConflictException"
+                message: "Insufficient stock for product SKU-MOUSE-001"
+                timestamp: "2026-08-13T05:30:00.000Z"
+                path: "/api/checkout/create-order"
+                method: "POST"
+    UpstreamError:
+      description: Razorpay API call failed or timed out
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            upstream_error:
+              summary: Upstream failure
+              value:
+                status: "error"
+                code: "BadGatewayException"
+                message: "Razorpay Orders API is currently unavailable"
+                timestamp: "2026-08-13T05:30:00.000Z"
+                path: "/api/checkout/create-order"
+                method: "POST"
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            server_error:
+              summary: Internal error
+              value:
+                status: "error"
+                code: "InternalServerErrorException"
+                message: "An unexpected error occurred"
+                timestamp: "2026-08-13T05:30:00.000Z"
+                path: "/api/products"
+                method: "GET"
+
+  schemas:
+    ProductDto:
+      type: object
+      required:
+        - id
+        - name
+        - sku
+        - price
+        - currency
+        - stockQuantity
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Wireless Mouse"
+        sku:
+          type: string
+          example: "SKU-MOUSE-001"
+        price:
+          type: number
+          format: decimal
+          minimum: 0
+          example: 799.00
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: "INR"
+        stockQuantity:
+          type: integer
+          minimum: 0
+          example: 120
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, OUT_OF_STOCK, DISCONTINUED]
+          example: "ACTIVE"
+
+    CreateCheckoutOrderRequest:
+      type: object
+      required:
+        - userId
+        - items
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: Must reference an existing row in `users`
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CheckoutItem'
+          description: Non-empty list of product line items
+
+    CheckoutItem:
+      type: object
+      required:
+        - productId
+        - quantity
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          description: Must not exceed the product's current stockQuantity
+
+    CreateCheckoutOrderResponse:
+      type: object
+      required:
+        - orderId
+        - razorpayOrderId
+        - amount
+        - currency
+        - keyId
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: Internal order id
+        razorpayOrderId:
+          type: string
+          description: Razorpay order id (`order_...`)
+        amount:
+          type: integer
+          description: Total amount in the smallest currency unit (paise for INR)
+          example: 249900
+        currency:
+          type: string
+          example: "INR"
+        keyId:
+          type: string
+          description: Razorpay Key ID (safe for the frontend Checkout.js integration)
+          example: "rzp_test_xxxxxxxxxxxx"
+
+    VerifyPaymentRequest:
+      type: object
+      required:
+        - orderId
+        - razorpayPaymentId
+        - razorpayOrderId
+        - razorpaySignature
+      properties:
+        orderId:
+          type: string
+          format: uuid
+          description: Internal order id
+        razorpayPaymentId:
+          type: string
+          example: "pay_NqX9zQ8r8gU0cD"
+        razorpayOrderId:
+          type: string
+          description: "The Razorpay order id as returned by Razorpay Checkout in the browser. Used only to build the HMAC input alongside razorpayPaymentId - the value actually trusted for the comparison is the provider_order_id stored server-side for orderId."
+          example: "order_NqX8mP7q7fT9aB"
+        razorpaySignature:
+          type: string
+          example: "9ef4dffbc61e0e1a1c8b5e2b6f6a2b0e...redacted"
+
+    VerifyPaymentResponse:
+      type: object
+      required:
+        - orderId
+        - status
+        - paymentStatus
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [PAID]
+        paymentStatus:
+          type: string
+          enum: [CAPTURED]
+
+    RazorpayWebhookPayload:
+      type: object
+      required:
+        - event
+        - payload
+      description: |
+        Shape mirrors Razorpay's actual webhook envelope. See
+        https://razorpay.com/docs/webhooks/payloads/payments/ for the authoritative reference;
+        only the fields this service reads are enumerated here.
+      properties:
+        event:
+          type: string
+          enum: [payment.authorized, payment.captured, payment.failed]
+        payload:
+          type: object
+          properties:
+            payment:
+              type: object
+              properties:
+                entity:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: Razorpay payment id (provider_payment_id)
+                    order_id:
+                      type: string
+                      description: Razorpay order id (provider_order_id)
+                    error_code:
+                      type: string
+                      nullable: true
+                    error_description:
+                      type: string
+                      nullable: true
+
+    WebhookAckResponse:
+      type: object
+      required:
+        - received
+        - eventId
+        - processingStatus
+      properties:
+        received:
+          type: boolean
+          example: true
+        eventId:
+          type: string
+        processingStatus:
+          type: string
+          enum: [PROCESSED, DUPLICATE_IGNORED, UNMATCHED]
+
+    RefundResponse:
+      type: object
+      required:
+        - orderId
+        - refundId
+        - providerRefundId
+        - status
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        refundId:
+          type: string
+          format: uuid
+          description: Internal `refunds.id`
+        providerRefundId:
+          type: string
+          example: "rfnd_NqXAzR9s9hV1dE"
+        status:
+          type: string
+          enum: [REFUND_PENDING, REFUNDED]
+
+    ErrorResponse:
+      type: object
+      description: |
+        Matches the shape actually produced by the global CustomExceptionFilter
+        (src/shared/filters/custom.exception.filter.ts, registered as APP_FILTER in
+        shared.module.ts) — not the older {success,error:{code,message,details}} wrapper used in
+        specs/flights.yml and specs/hawb.command.yml, which does not match current runtime
+        behavior. See design.md for details.
+      required:
+        - status
+        - code
+        - message
+        - timestamp
+        - path
+        - method
+      properties:
+        status:
+          type: string
+          example: "error"
+        code:
+          type: string
+          description: The thrown exception's class name (e.g. BadRequestException)
+          example: "BadRequestException"
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        method:
+          type: string
+        stack:
+          type: string
+          description: Only present when NODE_ENV=local
+          nullable: true
+
+tags:
+  - name: Products
+    description: Storefront product catalog
+  - name: Checkout
+    description: Order creation and Razorpay order creation
+  - name: Payments
+    description: Server-side Razorpay payment signature verification
+  - name: Webhooks
+    description: Razorpay webhook ingestion
+  - name: Refunds
+    description: Order refunds via the Razorpay Refunds API

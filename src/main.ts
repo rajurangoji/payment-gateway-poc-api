@@ -12,9 +12,16 @@ import { MigrationService } from '@shared/database/migrations/migration.service'
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
+  // `rawBody: true` makes Nest populate `req.rawBody` (a Buffer) alongside the
+  // normally parsed JSON body, using its own body parser registration path —
+  // so signature-verified webhook endpoints (e.g. Razorpay) can hash the
+  // exact bytes that were signed. Registering a second content-type parser
+  // manually here instead throws FST_ERR_CTP_ALREADY_PRESENT, because Nest
+  // registers its own default JSON parser during app.listen()/init().
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),
+    { rawBody: true },
   );
 
   const configService = app.get(ConfigService);

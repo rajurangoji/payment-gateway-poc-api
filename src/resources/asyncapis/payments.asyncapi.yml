@@ -1,0 +1,96 @@
+asyncapi: 2.6.0
+info:
+  title: Razorpay POC - Order Events
+  description: |
+    Published by the Checkout Order Creation use case (see specs/payments.yml
+    `POST /api/checkout/create-order`). Fire-and-forget: a publish failure must not fail the
+    HTTP response for the caller.
+
+    Channel naming follows the `{domain}.{entity}.{event}` convention. No
+    `docs/naming-conventions.md` exists in this repo yet — this pattern is a reasonable default
+    and should be reconciled once that file is instantiated (see design.md).
+  version: 1.0.0
+
+defaultContentType: application/json
+
+channels:
+  payments.order.created:
+    description: |
+      Published to the SQS queue registered as `queues.orderEvents` in `queues.config.ts`
+      (env var `SQS_ORDER_EVENTS_QUEUE`, default `order-events-queue`), immediately after
+      `orders`/`order_items`/`payments`/`payment_transactions` rows and the Razorpay order have
+      all been created successfully.
+    publish:
+      operationId: publishOrderCreated
+      summary: An ecommerce order (and its Razorpay order) was created
+      message:
+        $ref: '#/components/messages/OrderCreated'
+
+components:
+  messages:
+    OrderCreated:
+      name: ORDER_CREATED
+      title: Order Created
+      summary: A new order and its corresponding Razorpay order were created.
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/OrderCreatedPayload'
+      examples:
+        - name: basic
+          summary: Two line item order
+          payload:
+            type: "ORDER_CREATED"
+            orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+            orderNumber: "ORD-20260813-0001"
+            userId: "8f14e45f-ceea-467e-8a6d-000000000001"
+            razorpayOrderId: "order_NqX8mP7q7fT9aB"
+            totalAmount: 2499.00
+            currency: "INR"
+            status: "PENDING_PAYMENT"
+            at: "2026-08-13T05:30:00.000Z"
+
+  schemas:
+    OrderCreatedPayload:
+      type: object
+      required:
+        - type
+        - orderId
+        - orderNumber
+        - userId
+        - razorpayOrderId
+        - totalAmount
+        - currency
+        - status
+        - at
+      properties:
+        type:
+          type: string
+          enum: [ORDER_CREATED]
+        orderId:
+          type: string
+          format: uuid
+          description: Internal order id
+        orderNumber:
+          type: string
+          example: "ORD-20260813-0001"
+        userId:
+          type: string
+          format: uuid
+        razorpayOrderId:
+          type: string
+          example: "order_NqX8mP7q7fT9aB"
+        totalAmount:
+          type: number
+          format: decimal
+          minimum: 0
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+        status:
+          type: string
+          enum: [PENDING_PAYMENT]
+        at:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of publication

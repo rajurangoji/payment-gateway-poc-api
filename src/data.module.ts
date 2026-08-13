@@ -7,6 +7,16 @@ import {
 } from '@shared/database/interfaces/tenant-config-provider';
 
 import { Message } from './customs/query/message.entity';
+import {
+  CartProduct,
+  Order,
+  OrderItem,
+  Payment,
+  PaymentEvent,
+  PaymentTransaction,
+  Refund,
+  User,
+} from './payments/entities';
 import { SharedModule } from './shared.module';
 
 @Global()
@@ -18,7 +28,17 @@ import { SharedModule } from './shared.module';
       useFactory: (
         tenantConfigProvider: ITenantConfigProvider,
       ): DatasourceManager =>
-        new DatasourceManager(tenantConfigProvider, [Message]),
+        new DatasourceManager(tenantConfigProvider, [
+          Message,
+          User,
+          CartProduct,
+          Order,
+          OrderItem,
+          Payment,
+          PaymentTransaction,
+          Refund,
+          PaymentEvent,
+        ]),
       inject: [TENANT_CONFIG_PROVIDER],
     },
   ],
