@@ -1,0 +1,364 @@
+{
+  "info": {
+    "name": "Razorpay Payments (razorpay-payments)",
+    "description": "End-to-end smoke test for the 5 payment endpoints. Requests are chained: run them top to bottom in each folder and later requests pick up variables set by earlier ones (productId, orderId, razorpayOrderId, keyId).\n\n**One manual step before you start:** this API has no /users endpoint, so grab the seeded demo user's id once and paste it into the `userId` collection variable:\n\n```sql\nSELECT id FROM users WHERE email = 'demo.buyer@example.com';\n```\n\n**About the signature scripts:** the Verify and Webhook requests have a Pre-request Script that computes a real HMAC-SHA256 signature locally (using CryptoJS, bundled with Postman) against `razorpayKeySecret` / `razorpayWebhookSecret`. That's exactly the math the backend does to check it (see `razorpay-signature.util.ts`) — it lets you exercise the full verify/webhook logic without needing a completed real Razorpay Checkout session. Fill in the two secret variables from your local `.env` (never commit real values into this file).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "userId", "value": "PASTE_DEMO_USER_ID_HERE", "type": "string" },
+    { "key": "productId", "value": "", "type": "string" },
+    { "key": "productSku", "value": "", "type": "string" },
+    { "key": "orderId", "value": "", "type": "string" },
+    { "key": "razorpayOrderId", "value": "", "type": "string" },
+    { "key": "amount", "value": "", "type": "string" },
+    { "key": "currency", "value": "", "type": "string" },
+    { "key": "keyId", "value": "", "type": "string" },
+    { "key": "razorpayPaymentId", "value": "pay_TEST0000000000001", "type": "string" },
+    { "key": "razorpaySignature", "value": "", "type": "string" },
+    { "key": "razorpayKeySecret", "value": "PASTE_RAZORPAY_KEY_SECRET_FROM_.ENV", "type": "string" },
+    { "key": "razorpayWebhookSecret", "value": "PASTE_RAZORPAY_WEBHOOK_SECRET_FROM_.ENV", "type": "string" },
+    { "key": "refundId", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "1. Products",
+      "item": [
+        {
+          "name": "List active products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "products"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK, returns an array', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json()).to.be.an('array');",
+                  "});",
+                  "",
+                  "const products = pm.response.json();",
+                  "if (products.length > 0) {",
+                  "  pm.collectionVariables.set('productId', products[0].id);",
+                  "  pm.collectionVariables.set('productSku', products[0].sku);",
+                  "  console.log('Captured productId ->', products[0].id, '(' + products[0].sku + ')');",
+                  "} else {",
+                  "  console.warn('No ACTIVE products returned — did the SeedDummyCartProducts migration run?');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Checkout",
+      "item": [
+        {
+          "name": "Create checkout order",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"{{userId}}\",\n  \"items\": [\n    { \"productId\": \"{{productId}}\", \"quantity\": 2 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkout/create-order",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkout", "create-order"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 Created', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('orderId', body.orderId);",
+                  "pm.collectionVariables.set('razorpayOrderId', body.razorpayOrderId);",
+                  "pm.collectionVariables.set('amount', body.amount);",
+                  "pm.collectionVariables.set('currency', body.currency);",
+                  "pm.collectionVariables.set('keyId', body.keyId);",
+                  "console.log('Order created ->', body.orderId, '/ Razorpay order ->', body.razorpayOrderId);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Payments",
+      "item": [
+        {
+          "name": "Verify payment (simulated success)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"{{razorpaySignature}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "razorpay", "verify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Simulates what Razorpay Checkout.js would hand the browser after a real",
+                  "// payment: HMAC_SHA256(razorpayOrderId + '|' + razorpayPaymentId, keySecret).",
+                  "// Only works locally because we know the test-mode key secret — in production",
+                  "// this value comes from Razorpay, never computed client-side for real.",
+                  "const orderId = pm.collectionVariables.get('razorpayOrderId');",
+                  "const paymentId = pm.collectionVariables.get('razorpayPaymentId');",
+                  "const secret = pm.collectionVariables.get('razorpayKeySecret');",
+                  "",
+                  "if (!secret || secret.indexOf('PASTE_') === 0) {",
+                  "  console.warn('razorpayKeySecret collection variable is not set — signature will be invalid.');",
+                  "}",
+                  "",
+                  "const signature = CryptoJS.HmacSHA256(`${orderId}|${paymentId}`, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('razorpaySignature', signature);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK — payment captured, order PAID', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('PAID');",
+                  "  pm.expect(body.paymentStatus).to.eql('CAPTURED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify payment (tampered signature — expect 422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"{{orderId}}\",\n  \"razorpayPaymentId\": \"{{razorpayPaymentId}}\",\n  \"razorpayOrderId\": \"{{razorpayOrderId}}\",\n  \"razorpaySignature\": \"0000000000000000000000000000000000000000000000000000000000000000\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/razorpay/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "razorpay", "verify"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('422 Unprocessable Entity — signature mismatch rejected', function () {",
+                  "  pm.response.to.have.status(422);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Webhooks",
+      "item": [
+        {
+          "name": "payment.captured webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Razorpay-Signature", "value": "{{razorpaySignature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"{{razorpayPaymentId}}\",\n        \"order_id\": \"{{razorpayOrderId}}\"\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "razorpay"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Signature is HMAC_SHA256(raw request body, webhookSecret). Must match the",
+                  "// exact bytes in the Body tab above byte-for-byte, so keep this in sync if",
+                  "// you edit the JSON.",
+                  "const rawBody = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('razorpayWebhookSecret');",
+                  "",
+                  "if (!secret || secret.indexOf('PASTE_') === 0) {",
+                  "  console.warn('razorpayWebhookSecret collection variable is not set — signature will be invalid.');",
+                  "}",
+                  "",
+                  "const signature = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('razorpaySignature', signature);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK — processed', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.processingStatus).to.eql('PROCESSED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "payment.captured webhook (duplicate delivery)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Razorpay-Signature", "value": "{{razorpaySignature}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.captured\",\n  \"payload\": {\n    \"payment\": {\n      \"entity\": {\n        \"id\": \"{{razorpayPaymentId}}\",\n        \"order_id\": \"{{razorpayOrderId}}\"\n      }\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/webhooks/razorpay",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "webhooks", "razorpay"]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const rawBody = pm.request.body.raw;",
+                  "const secret = pm.collectionVariables.get('razorpayWebhookSecret');",
+                  "const signature = CryptoJS.HmacSHA256(rawBody, secret).toString(CryptoJS.enc.Hex);",
+                  "pm.collectionVariables.set('razorpaySignature', signature);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK — duplicate ignored, run this request twice to see it', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  console.log('processingStatus ->', body.processingStatus, '(expect DUPLICATE_IGNORED on the 2nd+ run)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Refunds",
+      "item": [
+        {
+          "name": "Refund order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{orderId}}", "refund"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK — refund created, order REFUND_PENDING', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.status).to.eql('REFUND_PENDING');",
+                  "  pm.collectionVariables.set('refundId', body.refundId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refund order again (expect 409 — already refunded)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderId}}/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "orders", "{{orderId}}", "refund"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 Conflict — cannot refund twice', function () {",
+                  "  pm.response.to.have.status(409);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

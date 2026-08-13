@@ -1,4 +1,5 @@
 import {
+  ConfigProperty,
   ConfigurationProperties,
   Required,
 } from '@snow-tzu/type-config-nestjs';
@@ -11,5 +12,6 @@ export class RazorpayConfig {
   @Required()
   keySecret: string;
 
+  @ConfigProperty('webhookSecret')
   webhookSecret?: string;
 }

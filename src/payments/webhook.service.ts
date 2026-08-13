@@ -43,10 +43,18 @@ export class WebhookService {
     rawBody: string,
     signature: string,
   ): Promise<WebhookAckResponseDto> {
-    const signatureValid = verifyWebhookSignature(
-      rawBody,
-      signature,
-      this.razorpayConfig.webhookSecret ?? '',
+    const secret = this.razorpayConfig.webhookSecret ?? '';
+    const signatureValid = verifyWebhookSignature(rawBody, signature, secret);
+    // TEMP DEBUG - remove after diagnosing signature mismatch
+    console.log('[webhook debug] secret length:', secret.length);
+    console.log('[webhook debug] rawBody:', JSON.stringify(rawBody));
+    console.log('[webhook debug] received signature:', signature);
+    console.log(
+      '[webhook debug] expected signature:',
+      require('crypto')
+        .createHmac('sha256', secret)
+        .update(rawBody)
+        .digest('hex'),
     );
     if (!signatureValid) {
       throw new BadRequestException('Invalid webhook signature');
