@@ -4,8 +4,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { WebhookAckResponseDto } from '@generated/payments/payments.dto';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
+import { RazorpayConfig } from '../../config/razorpay.config';
 import {
   Order,
   OrderStatus,
@@ -14,9 +13,11 @@ import {
   PaymentEventProcessingStatus,
   PaymentStatus,
   PaymentTransaction,
-} from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { verifyWebhookSignature } from './razorpay-signature.util';
+  Refund,
+  RefundStatus,
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+import { verifyWebhookSignature } from '../utils/razorpay-signature.util';
 
 interface RazorpayWebhookEnvelope {
   event?: string;
@@ -27,6 +28,11 @@ interface RazorpayWebhookEnvelope {
         order_id?: string;
         error_code?: string;
         error_description?: string;
+      };
+    };
+    refund?: {
+      entity?: {
+        id?: string;
       };
     };
   };
@@ -71,7 +77,9 @@ export class WebhookService {
     const entity = envelope.payload?.payment?.entity ?? {};
     const providerPaymentId = entity.id;
     const providerOrderId = entity.order_id;
-    const eventId = `${eventType}:${providerPaymentId ?? providerOrderId ?? randomUUID()}`;
+    const refundEntity = envelope.payload?.refund?.entity;
+    const providerRefundId = refundEntity?.id;
+    const eventId = `${eventType}:${providerRefundId ?? providerPaymentId ?? providerOrderId ?? randomUUID()}`;
 
     const dataSource = await this.dataSourceProvider.getDataSource();
 
@@ -130,6 +138,14 @@ export class WebhookService {
 
     this.applyPaymentAndOrderTransition(eventType, payment, order);
 
+    let refund: Refund | null = null;
+    if (providerRefundId) {
+      refund = await dataSource
+        .getRepository(Refund)
+        .findOneBy({ providerRefundId });
+      this.applyRefundTransition(eventType, refund, order);
+    }
+
     event.processingStatus = PaymentEventProcessingStatus.PROCESSED;
 
     await dataSource.transaction(async (manager) => {
@@ -140,6 +156,9 @@ export class WebhookService {
       if (order) {
         await manager.save(order);
       }
+      if (refund) {
+        await manager.save(refund);
+      }
       await manager.save(event);
     });
 
@@ -149,13 +168,17 @@ export class WebhookService {
   private applyTransactionTransition(
     transaction: PaymentTransaction,
     eventType: string,
-    entity: { error_code?: string; error_description?: string },
+    entity: { id?: string; error_code?: string; error_description?: string },
   ): void {
     transaction.updatedAt = new Date();
     if (eventType === 'payment.captured') {
       transaction.status = PaymentStatus.CAPTURED;
+      transaction.providerPaymentId =
+        entity.id ?? transaction.providerPaymentId;
     } else if (eventType === 'payment.authorized') {
       transaction.status = PaymentStatus.AUTHORIZED;
+      transaction.providerPaymentId =
+        entity.id ?? transaction.providerPaymentId;
     } else if (eventType === 'payment.failed') {
       transaction.status = PaymentStatus.FAILED;
       transaction.failureCode = entity.error_code ?? null;
@@ -184,6 +207,32 @@ export class WebhookService {
       }
       if (order) {
         order.status = OrderStatus.PAYMENT_FAILED;
+        order.updatedAt = new Date();
+      }
+    }
+  }
+
+  private applyRefundTransition(
+    eventType: string,
+    refund: Refund | null,
+    order: Order | null,
+  ): void {
+    if (!refund) {
+      return;
+    }
+    if (eventType === 'refund.processed') {
+      refund.status = RefundStatus.PROCESSED;
+      refund.updatedAt = new Date();
+      if (order) {
+        order.status = OrderStatus.REFUNDED;
+        order.updatedAt = new Date();
+      }
+    } else if (eventType === 'refund.failed') {
+      refund.status = RefundStatus.FAILED;
+      refund.updatedAt = new Date();
+      if (order) {
+        // The refund didn't go through, so the order is still effectively paid.
+        order.status = OrderStatus.PAID;
         order.updatedAt = new Date();
       }
     }

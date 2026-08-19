@@ -61,8 +61,8 @@ paths:
       description: |
         Re-fetches prices/stock from `cart_products` (a client-supplied amount, if sent, is
         ignored), computes subtotal/tax/shipping/discount/total, creates `orders` + `order_items`,
-        creates a Razorpay order for the computed total (in paise), stores `payments` +
-        `payment_transactions`, and publishes an `ORDER_CREATED` message to SQS.
+        creates a Razorpay order for the computed total (in paise), and stores `payments` +
+        `payment_transactions`.
       operationId: createCheckoutOrder
       parameters:
         - $ref: '#/components/parameters/XTraceId'
@@ -226,6 +226,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/orders:
+    get:
+      tags:
+        - Orders
+      summary: List orders for a user
+      description: |
+        Returns every order placed by `userId`, newest first, with its line items and latest
+        payment status embedded — enough to render an order history page and decide whether the
+        "Refund" action should be offered (only orders with `orderStatus: PAID` are refundable via
+        `POST /api/orders/{id}/refund`).
+      operationId: listOrders
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Must reference an existing row in `users`
+          example: "8f14e45f-ceea-467e-8a6d-000000000001"
+        - $ref: '#/components/parameters/XTraceId'
+        - $ref: '#/components/parameters/XSpanId'
+        - $ref: '#/components/parameters/Traceparent'
+      responses:
+        '200':
+          description: Orders for this user (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderSummary'
+              examples:
+                orders:
+                  summary: One paid, one pending
+                  value:
+                    - orderId: "a1b2c3d4-0000-4a2b-9c3d-000000000010"
+                      orderNumber: "ORD-20260817-0F0EDF5C"
+                      orderStatus: "PAID"
+                      totalAmount: 2499.00
+                      currency: "INR"
+                      createdAt: "2026-08-17T07:19:41.000Z"
+                      latestPaymentStatus: "CAPTURED"
+                      items:
+                        - productName: "Wireless Mouse"
+                          sku: "SKU-MOUSE-001"
+                          quantity: 2
+                          unitPrice: 799.00
+                          totalAmount: 1598.00
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '500':
           $ref: '#/components/responses/ServerError'
 
@@ -576,6 +630,74 @@ components:
           type: string
           enum: [PROCESSED, DUPLICATE_IGNORED, UNMATCHED]
 
+    OrderItemSummary:
+      type: object
+      required:
+        - productName
+        - sku
+        - quantity
+        - unitPrice
+        - totalAmount
+      properties:
+        productName:
+          type: string
+          example: "Wireless Mouse"
+        sku:
+          type: string
+          example: "SKU-MOUSE-001"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        unitPrice:
+          type: number
+          format: decimal
+          example: 799.00
+        totalAmount:
+          type: number
+          format: decimal
+          example: 1598.00
+
+    OrderSummary:
+      type: object
+      required:
+        - orderId
+        - orderNumber
+        - orderStatus
+        - totalAmount
+        - currency
+        - createdAt
+        - items
+      properties:
+        orderId:
+          type: string
+          format: uuid
+        orderNumber:
+          type: string
+          example: "ORD-20260817-0F0EDF5C"
+        orderStatus:
+          type: string
+          enum: [PENDING_PAYMENT, PAID, PROCESSING, SHIPPED, DELIVERED, PAYMENT_FAILED, CANCELLED, REFUND_PENDING, REFUNDED]
+        totalAmount:
+          type: number
+          format: decimal
+          example: 2499.00
+        currency:
+          type: string
+          example: "INR"
+        createdAt:
+          type: string
+          format: date-time
+        latestPaymentStatus:
+          type: string
+          nullable: true
+          enum: [CREATED, AUTHORIZED, CAPTURED, FAILED, CANCELLED, REFUNDED, PARTIALLY_REFUNDED]
+          description: Null if the order somehow has no payment row yet.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemSummary'
+
     RefundResponse:
       type: object
       required:
@@ -640,6 +762,8 @@ tags:
     description: Storefront product catalog
   - name: Checkout
     description: Order creation and Razorpay order creation
+  - name: Orders
+    description: Order history for a user
   - name: Payments
     description: Server-side Razorpay payment signature verification
   - name: Webhooks

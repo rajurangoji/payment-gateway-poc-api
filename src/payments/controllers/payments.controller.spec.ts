@@ -1,11 +1,13 @@
 import { NotFoundException } from '@nestjs/common';
 
-import { CheckoutService } from './checkout.service';
-import { PaymentVerificationService } from './payment-verification.service';
+import { CheckoutService } from '../services/checkout.service';
+import { OrdersService } from '../services/orders.service';
+import { PaymentVerificationService } from '../services/payment-verification.service';
+import { ProductsService } from '../services/products.service';
+import { RefundsService } from '../services/refunds.service';
+import { WebhookService } from '../services/webhook.service';
+
 import { PaymentsController } from './payments.controller';
-import { ProductsService } from './products.service';
-import { RefundsService } from './refunds.service';
-import { WebhookService } from './webhook.service';
 
 describe('PaymentsController', () => {
   let productsService: { findActiveProducts: jest.Mock };
@@ -13,6 +15,7 @@ describe('PaymentsController', () => {
   let paymentVerificationService: { verifyPayment: jest.Mock };
   let webhookService: { handleWebhook: jest.Mock };
   let refundsService: { refundOrder: jest.Mock };
+  let ordersService: { listOrdersForUser: jest.Mock };
   let controller: PaymentsController;
 
   beforeEach(() => {
@@ -21,6 +24,7 @@ describe('PaymentsController', () => {
     paymentVerificationService = { verifyPayment: jest.fn() };
     webhookService = { handleWebhook: jest.fn() };
     refundsService = { refundOrder: jest.fn() };
+    ordersService = { listOrdersForUser: jest.fn() };
 
     controller = new PaymentsController(
       { rawBody: Buffer.from('{"event":"payment.captured"}', 'utf8') } as never,
@@ -29,6 +33,7 @@ describe('PaymentsController', () => {
       paymentVerificationService as unknown as PaymentVerificationService,
       webhookService as unknown as WebhookService,
       refundsService as unknown as RefundsService,
+      ordersService as unknown as OrdersService,
     );
   });
 
@@ -108,5 +113,14 @@ describe('PaymentsController', () => {
 
     expect(result).toEqual({ orderId: 'order-1' });
     expect(refundsService.refundOrder).toHaveBeenCalledWith('order-1');
+  });
+
+  it('listOrders delegates to OrdersService with the user id', async () => {
+    ordersService.listOrdersForUser.mockResolvedValue([{ orderId: 'order-1' }]);
+
+    const result = await controller.listOrders('user-1');
+
+    expect(result).toEqual([{ orderId: 'order-1' }]);
+    expect(ordersService.listOrdersForUser).toHaveBeenCalledWith('user-1');
   });
 });

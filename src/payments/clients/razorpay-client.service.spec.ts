@@ -1,4 +1,4 @@
-import { RazorpayConfig } from '../config/razorpay.config';
+import { RazorpayConfig } from '../../config/razorpay.config';
 
 import { RazorpayApiError } from './razorpay-api.error';
 import { RazorpayClientService } from './razorpay-client.service';

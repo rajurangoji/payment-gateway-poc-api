@@ -1,7 +1,6 @@
 import * as crypto from 'crypto';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
+import { RazorpayConfig } from '../../config/razorpay.config';
 import {
   Order,
   OrderStatus,
@@ -9,8 +8,9 @@ import {
   PaymentEvent,
   PaymentStatus,
   PaymentTransaction,
-} from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+
 import { WebhookService } from './webhook.service';
 
 const WEBHOOK_SECRET = 'test_webhook_secret';

@@ -4,9 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
-import { CheckoutService } from './checkout.service';
+import { RazorpayConfig } from '../../config/razorpay.config';
+import { RazorpayApiError } from '../clients/razorpay-api.error';
+import { RazorpayClientService } from '../clients/razorpay-client.service';
 import {
   CartProduct,
   CartProductStatus,
@@ -15,11 +15,10 @@ import {
   Payment,
   PaymentTransaction,
   User,
-} from './entities';
-import { OrderEventsPublisher } from './order-events.publisher';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { RazorpayApiError } from './razorpay-api.error';
-import { RazorpayClientService } from './razorpay-client.service';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+
+import { CheckoutService } from './checkout.service';
 
 function cartProduct(overrides: Partial<CartProduct> = {}): CartProduct {
   const product = new CartProduct();
@@ -53,7 +52,6 @@ describe('CheckoutService', () => {
   let transactionMock: jest.Mock;
   let saveMock: jest.Mock;
   let createOrderMock: jest.Mock;
-  let publishMock: jest.Mock;
   let service: CheckoutService;
 
   beforeEach(() => {
@@ -90,11 +88,6 @@ describe('CheckoutService', () => {
       createOrder: createOrderMock,
     } as unknown as RazorpayClientService;
 
-    publishMock = jest.fn().mockResolvedValue(undefined);
-    const orderEventsPublisher = {
-      publishOrderCreated: publishMock,
-    } as unknown as OrderEventsPublisher;
-
     const razorpayConfig = new RazorpayConfig();
     razorpayConfig.keyId = 'rzp_test_dummy';
     razorpayConfig.keySecret = 'dummy_secret';
@@ -102,7 +95,6 @@ describe('CheckoutService', () => {
     service = new CheckoutService(
       dataSourceProvider,
       razorpayClient,
-      orderEventsPublisher,
       razorpayConfig,
     );
   });
@@ -155,17 +147,6 @@ describe('CheckoutService', () => {
       ) as PaymentTransaction;
     expect(savedTransaction.providerOrderId).toBe('order_razorpay_1');
     expect(savedTransaction.paymentId).toBe(savedPayment.id);
-
-    expect(publishMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'ORDER_CREATED',
-        orderId: savedOrder.id,
-        razorpayOrderId: 'order_razorpay_1',
-        totalAmount: 1598,
-        currency: 'INR',
-        status: 'PENDING_PAYMENT',
-      }),
-    );
   });
 
   it('never touches the database when the Razorpay Orders API call fails (C8)', async () => {
@@ -179,33 +160,6 @@ describe('CheckoutService', () => {
 
     expect(transactionMock).not.toHaveBeenCalled();
     expect(saveMock).not.toHaveBeenCalled();
-    expect(publishMock).not.toHaveBeenCalled();
-  });
-
-  it('publishes a distinct ORDER_CREATED event per call, for two separate orders (E3)', async () => {
-    await service.createOrder('user-1', [
-      { productId: 'product-1', quantity: 1 },
-    ]);
-    await service.createOrder('user-1', [
-      { productId: 'product-1', quantity: 1 },
-    ]);
-
-    expect(publishMock).toHaveBeenCalledTimes(2);
-    const [firstCallPayload] = publishMock.mock.calls[0] as [
-      { orderId: string },
-    ];
-    const [secondCallPayload] = publishMock.mock.calls[1] as [
-      { orderId: string },
-    ];
-    expect(firstCallPayload.orderId).not.toBe(secondCallPayload.orderId);
-  });
-
-  it('still returns success even if publishing ORDER_CREATED rejects (E2)', async () => {
-    publishMock.mockRejectedValue(new Error('sqs down'));
-
-    await expect(
-      service.createOrder('user-1', [{ productId: 'product-1', quantity: 1 }]),
-    ).resolves.toBeDefined();
   });
 
   it('ignores any client-supplied amount field and computes it server-side (C2)', async () => {

@@ -13,7 +13,6 @@ import { SqsConfig } from '@shared/sqs/sqs.config';
 import { SampleClientConfig } from './clients/sample/sample.client.config';
 import { RazorpayConfig } from './config/razorpay.config';
 import { ExampleQueueConfig } from './examples/example.queue.config';
-import { OrderEventsQueueConfig } from './payments/order-events-queue.config';
 
 @Module({
   imports: [
@@ -38,7 +37,6 @@ import { OrderEventsQueueConfig } from './payments/order-events-queue.config';
       SnsConfig,
       ExampleQueueConfig,
       RazorpayConfig,
-      OrderEventsQueueConfig,
     ]),
   ],
   exports: [TypeConfigModule],

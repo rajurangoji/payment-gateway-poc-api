@@ -1,16 +1,16 @@
 import * as crypto from 'crypto';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
+import { RazorpayConfig } from '../../config/razorpay.config';
 import {
   Order,
   OrderStatus,
   Payment,
   PaymentStatus,
   PaymentTransaction,
-} from './entities';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+
 import { PaymentVerificationService } from './payment-verification.service';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
 
 function order(overrides: Partial<Order> = {}): Order {
   const o = new Order();

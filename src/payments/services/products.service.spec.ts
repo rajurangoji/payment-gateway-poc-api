@@ -1,5 +1,6 @@
-import { CartProduct, CartProductStatus } from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
+import { CartProduct, CartProductStatus } from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+
 import { ProductsService } from './products.service';
 
 function cartProduct(overrides: Partial<CartProduct>): CartProduct {

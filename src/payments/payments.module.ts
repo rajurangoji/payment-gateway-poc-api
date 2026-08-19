@@ -1,29 +1,26 @@
 import { Module } from '@nestjs/common';
 
-import { AwsModule } from '../aws.module';
-
-import { CheckoutService } from './checkout.service';
-import { OrderEventsPublisher } from './order-events.publisher';
-import { PaymentVerificationService } from './payment-verification.service';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { PaymentsController } from './payments.controller';
-import { ProductsService } from './products.service';
-import { RazorpayClientService } from './razorpay-client.service';
-import { RefundsService } from './refunds.service';
-import { WebhookService } from './webhook.service';
+import { RazorpayClientService } from './clients/razorpay-client.service';
+import { PaymentsController } from './controllers/payments.controller';
+import { PaymentsDataSourceProvider } from './providers/payments-datasource.provider';
+import { CheckoutService } from './services/checkout.service';
+import { OrdersService } from './services/orders.service';
+import { PaymentVerificationService } from './services/payment-verification.service';
+import { ProductsService } from './services/products.service';
+import { RefundsService } from './services/refunds.service';
+import { WebhookService } from './services/webhook.service';
 
 @Module({
-  imports: [AwsModule],
   controllers: [PaymentsController],
   providers: [
     PaymentsDataSourceProvider,
     RazorpayClientService,
-    OrderEventsPublisher,
     ProductsService,
     CheckoutService,
     PaymentVerificationService,
     WebhookService,
     RefundsService,
+    OrdersService,
   ],
 })
 export class PaymentsModule {}

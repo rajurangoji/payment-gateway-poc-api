@@ -7,17 +7,16 @@ import {
 
 import { VerifyPaymentResponseDto } from '@generated/payments/payments.dto';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
+import { RazorpayConfig } from '../../config/razorpay.config';
 import {
   Order,
   OrderStatus,
   Payment,
   PaymentStatus,
   PaymentTransaction,
-} from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { verifyPaymentSignature } from './razorpay-signature.util';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
+import { verifyPaymentSignature } from '../utils/razorpay-signature.util';
 
 @Injectable()
 export class PaymentVerificationService {

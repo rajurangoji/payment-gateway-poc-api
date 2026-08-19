@@ -46,8 +46,6 @@ clients:
 queues:
   example:
     name: dummy-queue
-  orderEvents:
-    name: ${SQS_ORDER_EVENTS_QUEUE:order-events-queue}
 razorpay:
   keyId: ${RAZORPAY_KEY_ID}
   keySecret: ${RAZORPAY_KEY_SECRET}

@@ -5,7 +5,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { In } from 'typeorm';
@@ -15,8 +14,12 @@ import {
   CreateCheckoutOrderResponseDto,
 } from '@generated/payments/payments.dto';
 
-import { RazorpayConfig } from '../config/razorpay.config';
-
+import { RazorpayConfig } from '../../config/razorpay.config';
+import { RazorpayApiError } from '../clients/razorpay-api.error';
+import {
+  RazorpayClientService,
+  RazorpayOrderResult,
+} from '../clients/razorpay-client.service';
 import {
   CartProduct,
   Order,
@@ -26,23 +29,14 @@ import {
   PaymentStatus,
   PaymentTransaction,
   User,
-} from './entities';
-import { OrderEventsPublisher } from './order-events.publisher';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { RazorpayApiError } from './razorpay-api.error';
-import {
-  RazorpayClientService,
-  RazorpayOrderResult,
-} from './razorpay-client.service';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
 
 @Injectable()
 export class CheckoutService {
-  private readonly logger = new Logger(CheckoutService.name);
-
   constructor(
     private readonly dataSourceProvider: PaymentsDataSourceProvider,
     private readonly razorpayClient: RazorpayClientService,
-    private readonly orderEventsPublisher: OrderEventsPublisher,
     private readonly razorpayConfig: RazorpayConfig,
   ) {}
 
@@ -143,25 +137,6 @@ export class CheckoutService {
       await manager.save(payment);
       await manager.save(paymentTransaction);
     });
-
-    try {
-      await this.orderEventsPublisher.publishOrderCreated({
-        type: 'ORDER_CREATED',
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        userId: order.userId,
-        razorpayOrderId: razorpayOrder.id,
-        totalAmount,
-        currency,
-        status: 'PENDING_PAYMENT',
-        at: new Date().toISOString(),
-      });
-    } catch (error) {
-      this.logger.error(
-        `Failed to publish ORDER_CREATED for order ${order.id}`,
-        error as Error,
-      );
-    }
 
     return {
       orderId: order.id,

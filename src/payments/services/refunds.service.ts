@@ -9,6 +9,11 @@ import {
 
 import { RefundResponseDto } from '@generated/payments/payments.dto';
 
+import { RazorpayApiError } from '../clients/razorpay-api.error';
+import {
+  RazorpayClientService,
+  RazorpayRefundResult,
+} from '../clients/razorpay-client.service';
 import {
   Order,
   OrderStatus,
@@ -16,13 +21,8 @@ import {
   PaymentTransaction,
   Refund,
   RefundStatus,
-} from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
-import { RazorpayApiError } from './razorpay-api.error';
-import {
-  RazorpayClientService,
-  RazorpayRefundResult,
-} from './razorpay-client.service';
+} from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
 
 @Injectable()
 export class RefundsService {

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 
 import { ProductDtoDto, StatusEnum } from '@generated/payments/payments.dto';
 
-import { CartProduct, CartProductStatus } from './entities';
-import { PaymentsDataSourceProvider } from './payments-datasource.provider';
+import { CartProduct, CartProductStatus } from '../entities';
+import { PaymentsDataSourceProvider } from '../providers/payments-datasource.provider';
 
 @Injectable()
 export class ProductsService {

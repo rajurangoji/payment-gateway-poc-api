@@ -6,6 +6,7 @@ import { PaymentsControllerBase } from '@generated/payments/payments.controller.
 import {
   CreateCheckoutOrderRequestDto,
   CreateCheckoutOrderResponseDto,
+  OrderSummaryDto,
   ProductDtoDto,
   RazorpayWebhookPayloadDto,
   RefundResponseDto,
@@ -14,11 +15,12 @@ import {
   WebhookAckResponseDto,
 } from '@generated/payments/payments.dto';
 
-import { CheckoutService } from './checkout.service';
-import { PaymentVerificationService } from './payment-verification.service';
-import { ProductsService } from './products.service';
-import { RefundsService } from './refunds.service';
-import { WebhookService } from './webhook.service';
+import { CheckoutService } from '../services/checkout.service';
+import { OrdersService } from '../services/orders.service';
+import { PaymentVerificationService } from '../services/payment-verification.service';
+import { ProductsService } from '../services/products.service';
+import { RefundsService } from '../services/refunds.service';
+import { WebhookService } from '../services/webhook.service';
 
 export interface RequestWithRawBody extends FastifyRequest {
   rawBody?: Buffer;
@@ -33,6 +35,7 @@ export class PaymentsController extends PaymentsControllerBase {
     private readonly paymentVerificationService: PaymentVerificationService,
     private readonly webhookService: WebhookService,
     private readonly refundsService: RefundsService,
+    private readonly ordersService: OrdersService,
   ) {
     super();
   }
@@ -69,5 +72,9 @@ export class PaymentsController extends PaymentsControllerBase {
 
   async refundOrder(id: string): Promise<RefundResponseDto> {
     return this.refundsService.refundOrder(id);
+  }
+
+  async listOrders(userId: string): Promise<OrderSummaryDto[]> {
+    return this.ordersService.listOrdersForUser(userId);
   }
 }

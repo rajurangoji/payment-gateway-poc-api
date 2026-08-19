@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import Razorpay = require('razorpay');
 
-import { RazorpayConfig } from '../config/razorpay.config';
+import { RazorpayConfig } from '../../config/razorpay.config';
 
 import { RazorpayApiError } from './razorpay-api.error';
 
@@ -17,8 +17,19 @@ export interface RazorpayRefundResult {
   status: string;
 }
 
+interface RazorpayCreateOrderPayload {
+  amount: number;
+  currency: string;
+  receipt: string;
+}
+
+interface RazorpayCreateRefundPayload {
+  amount: number;
+}
+
 @Injectable()
 export class RazorpayClientService {
+  private readonly logger = new Logger(RazorpayClientService.name);
   private readonly client: Razorpay;
 
   constructor(razorpayConfig: RazorpayConfig) {
@@ -33,12 +44,17 @@ export class RazorpayClientService {
     currency: string,
     receipt: string,
   ): Promise<RazorpayOrderResult> {
+    const payload: RazorpayCreateOrderPayload = {
+      amount: amountPaise,
+      currency,
+      receipt,
+    };
+    this.logger.log(
+      `POST /v1/orders payload: ${JSON.stringify(payload)}`,
+    );
+
     try {
-      const order = await this.client.orders.create({
-        amount: amountPaise,
-        currency,
-        receipt,
-      });
+      const order = await this.client.orders.create(payload);
       return {
         id: order.id,
         amount: Number(order.amount),
@@ -54,10 +70,13 @@ export class RazorpayClientService {
     paymentId: string,
     amountPaise: number,
   ): Promise<RazorpayRefundResult> {
+    const payload: RazorpayCreateRefundPayload = { amount: amountPaise };
+    this.logger.log(
+      `POST /v1/payments/${paymentId}/refund payload: ${JSON.stringify(payload)}`,
+    );
+
     try {
-      const refund = await this.client.payments.refund(paymentId, {
-        amount: amountPaise,
-      });
+      const refund = await this.client.payments.refund(paymentId, payload);
       return { id: refund.id, status: refund.status };
     } catch (error) {
       throw new RazorpayApiError('Failed to create Razorpay refund', error);

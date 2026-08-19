@@ -10,7 +10,7 @@ import {
   PaymentTransaction,
   Refund,
   User,
-} from './entities';
+} from '../entities';
 
 @Injectable()
 export class PaymentsDataSourceProvider {
